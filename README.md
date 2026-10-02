@@ -4,7 +4,7 @@
 and an **ElevenLabs-compatible API** (`POST /v1/text-to-speech/{voice_id}`, `GET /v1/voices`, `GET /v1/models`).
 
 The main goal of the project is to provide a **“drop-in and works” TTS backend**, compatible with OpenAI- and ElevenLabs-style clients, for
-[OpenClaw](https://github.com/openclaw/openclaw) — чтобы OpenClaw мог говорить, не полагаясь на внешние облачные сервисы.
+[OpenClaw](https://github.com/openclaw/openclaw) — so OpenClaw can speak without relying on external cloud services.
 At the same time, this server works with **any** project that expects an OpenAI-compatible and/or ElevenLabs-compatible TTS endpoint: simply configure the
 client to use this server's base URL.
 
@@ -32,24 +32,24 @@ The project also supports **automatic audio playback** directly on the server. T
 
 - **OpenAI API compatibility**: реализует `POST /v1/audio/speech` с привычными полями запроса:
   `model`, `input`, `voice`, `response_format`, `speed`.
-- **Optional ElevenLabs-compatible mode**: может отдавать `POST /v1/text-to-speech/{voice_id}` и `GET /v1/voices` для клиентов с ElevenLabs-style контрактом.
-- **Designed for OpenClaw**, но работает с любым OpenAI-совместимым клиентом.
-- **Standalone console client** (Windows): сам запускает сервер в фоне,
-  ждёт готовности, ведёт REPL со сменой голосов, корректно гасит сервер
-  по `exit`, `Ctrl+C` и закрытию окна.
-- **Russian and English support** (автоматическое распознавание).
+- **Optional ElevenLabs-compatible mode**: can send `POST /v1/text-to-speech/{voice_id}` и `GET /v1/voices` for clients with ElevenLabs-style contract.
+- **Designed for OpenClaw**, but it works with any OpenAI‑compatible client.
+- **Standalone console client** (Windows): It launches the server in the background,
+  waits for readiness, runs REPL with voice changes, correctly shuts down the server
+  by `exit`, `Ctrl+C` and window closing.
+- **Russian and English support** (auto recognition).
 - **Natural number reading**:
   - expands integers into words;
-  - for Russian, matches noun forms to numbers (например: “21 рубль / 22 рубля / 25 рублей”);
+  - for Russian, matches noun forms to numbers (for ex.: “21 рубль / 22 рубля / 25 рублей”);
   - expands common patterns such as `%` and `₽` (the ruble symbol).
 - **Multiple voices**:
   - accepts OpenAI voice names (`alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`) and maps them to Silero speakers;
-  - also accepts Silero speaker IDs directly (например: `baya`, `aidar`, `kseniya`, `xenia`, `eugene`, `random`).
+  - also accepts Silero speaker IDs directly (for ex.: `baya`, `aidar`, `kseniya`, `xenia`, `eugene`, `random`).
 - **Multiple output formats**: `wav`, `mp3`, `opus`, `aac`, `flac`.
-- **Speed control** (`0.25`–`4.0`) с помощью аудиофильтров FFmpeg.
-- **Disk cache**, чтобы не пересинтезировать одну и ту же фразу снова и снова.
-- **Optional API key** (Bearer token) для приватных развёртываний.
-- **Runs on CPU by default**, с опциональной поддержкой GPU (CUDA), если ваша сборка PyTorch её поддерживает.
+- **Speed control** (`0.25`–`4.0`) using FFmpeg audio filters.
+- **Disk cache**, so as not to re‑synthesize the same phrase over and over again.
+- **Optional API key** (Bearer token) for private deployments.
+- **Runs on CPU by default**, with optional GPU (CUDA) support, if your PyTorch build supports it.
 
 ---
 
