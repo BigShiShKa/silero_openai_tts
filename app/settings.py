@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     port: int = 8000
     
     silero_language: str = "ru"
-    silero_model_id: str = "v5_1_ru"
+    silero_model_id: str = "v5_5_ru"
     silero_sample_rate: int = 48000
 
     silero_device: DeviceMode = "auto"
