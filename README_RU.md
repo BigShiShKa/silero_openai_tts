@@ -95,6 +95,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -U pip
 pip install -e .
+pip install -e ".[client]"
 ```
 
 **Windows (PowerShell):**
@@ -103,7 +104,15 @@ pip install -e .
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -U pip
+
+# Только сервер:
 python -m pip install -e .
+
+# Сервер + консольный клиент (рекомендуется):
+python -m pip install -e ".[client]"
+
+# Сервер + клиент + тесты:
+python -m pip install -e ".[client,test]"
 ```
 
 Если PowerShell блокирует запуск скриптов, один раз разрешите локальные скрипты для текущего пользователя:
@@ -207,7 +216,7 @@ silero-tts --port 8080 --force-play
 - Windows (использует `taskkill`, `jobobject` и `sounddevice` с WASAPI-устройствами).
 - Python 3.10+ из состава виртуального окружения проекта (`.venv`).
 - FFmpeg — только если планируете работать с не-WAV форматами.
-- Установленный `sounddevice` (см. `requirements-client.txt` или общий `pyproject.toml`).
+- Установленный `sounddevice` (см. extras `[client]` в `pyproject.toml`).
 
 ### Установка
 
@@ -215,6 +224,7 @@ silero-tts --port 8080 --force-play
 cd D:\Programms\silero_openai_tts
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[client]"
+```
 
 ### Настройки
 
@@ -322,88 +332,89 @@ python run_tts.py "Привет, это тестовая фраза."
 
 ### Ярлык на Рабочем столе
 
-Есть два способа запускать всё одной кнопкой.
+Ярлык создаётся автоматически при первом запуске `run_tts.py` — при условии,
+что рядом лежат `run_tts.bat` и `silero.ico`. Никаких ручных действий не
+требуется: запустите клиент один раз, и на рабочем столе появится
+«Silero TTS».
 
-#### Вариант 1 — ярлык на `run_tts.bat` (просто)
+Управление — в начале `run_tts.py`:
 
-1. Убедись, что рядом с `run_tts.py` лежит `run_tts.bat`:
+```python
+CREATE_DESKTOP_SHORTCUT = True   # False — не создавать ярлык
+SHORTCUT_NAME = "Silero TTS"     # имя файла ярлыка (без .lnk)
+```
 
-   ```bat
-   @echo off
-   chcp 65001 >nul
-   cd /d "%~dp0"
-   "%~dp0.venv\Scripts\python.exe" "%~dp0run_tts.py" %*
-   if errorlevel 1 pause
-   ```
+Содержимое `run_tts.bat` (используется как TargetPath ярлыка):
 
-2. Правый клик по `run_tts.bat` → **Отправить → Рабочий стол (создать ярлык)**.
-3. По желанию: свойства ярлыка → **Сменить значок** → указать `silero.ico`.
+```bat
+@echo off
+chcp 65001 >nul
+cd /d "%~dp0"
+"%~dp0.venv\Scripts\python.exe" "%~dp0run_tts.py" %*
+if errorlevel 1 pause
+```
 
-Готово. Двойной клик открывает консоль с REPL и поднимает сервер.
+> **Минус консольных ярлыков.** В панели задач Windows отображается иконка
+> `cmd.exe`, а не `silero.ico`. Это ограничение Windows для консольных
+> приложений — иконка самого ярлыка и файла `.bat` будет вашей, но панель
+> задач всё равно покажет cmd.
 
-> **Минус этого способа:** в панели задач Windows будет отображаться
-> иконка `cmd.exe`, а не ваша. Это ограничение Windows для консольных
-> приложений — обойти его штатно нельзя. Иконка самого ярлыка и файла
-> `.bat` будет вашей, но панель задач всё равно покажет cmd.
+#### Если хочется свою иконку и в панели задач
 
-#### Вариант 2 — `SileroTTS.exe` с вшитой иконкой (красивее)
+Единственный способ — запускать Python **напрямую**, без промежуточного
+`cmd.exe`. Для этого собирается минимальный C#-лаунчер `SileroTTS.exe`
+с вшитой иконкой. Компилятор C# входит в состав .NET Framework.
 
-Понадобится компилятор C# из состава .NET Framework (идёт с Windows).
+Положите рядом `launcher.cs` и `silero.ico`:
 
-1. Положи рядом `launcher.cs` и `silero.ico`:
+```csharp
+using System;
+using System.Diagnostics;
+using System.IO;
 
-   ```csharp
-   using System;
-   using System.Diagnostics;
-   using System.IO;
+class Launcher
+{
+    static int Main(string[] args)
+    {
+        string dir = AppDomain.CurrentDomain.BaseDirectory;
+        string py  = Path.Combine(dir, ".venv", "Scripts", "python.exe");
+        string run = Path.Combine(dir, "run_tts.py");
 
-   class Launcher
-   {
-       static int Main(string[] args)
-       {
-           string dir = AppDomain.CurrentDomain.BaseDirectory;
-           string py  = Path.Combine(dir, ".venv", "Scripts", "python.exe");
-           string run = Path.Combine(dir, "run_tts.py");
+        ProcessStartInfo psi = new ProcessStartInfo();
+        psi.FileName = py;
+        psi.WorkingDirectory = dir;
+        psi.UseShellExecute = false;
+        psi.Arguments = "\"" + run + "\"" +
+            (args.Length > 0 ? " " + string.Join(" ", args) : "");
 
-           ProcessStartInfo psi = new ProcessStartInfo();
-           psi.FileName = py;
-           psi.WorkingDirectory = dir;
-           psi.UseShellExecute = false;
-           psi.Arguments = "\"" + run + "\"" +
-               (args.Length > 0 ? " " + string.Join(" ", args) : "");
+        Process p = Process.Start(psi);
+        p.WaitForExit();
+        return p.ExitCode;
+    }
+}
+```
 
-           Process p = Process.Start(psi);
-           p.WaitForExit();
-           return p.ExitCode;
-       }
-   }
-   ```
+Соберите `SileroTTS.exe`:
 
-2. Собери `SileroTTS.exe`:
+```powershell
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe `
+    /target:exe /win32icon:silero.ico `
+    /out:SileroTTS.exe launcher.cs
+```
 
-   ```powershell
-   C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe `
-       /target:exe /win32icon:silero.ico `
-       /out:SileroTTS.exe launcher.cs
-   ```
+Затем создайте ярлык на `SileroTTS.exe`:
 
-3. Создай ярлык на Рабочем столе:
+```powershell
+$ws  = New-Object -ComObject WScript.Shell
+$lnk = $ws.CreateShortcut("$env:USERPROFILE\Desktop\Silero TTS.lnk")
+$lnk.TargetPath       = "$PWD\SileroTTS.exe"
+$lnk.WorkingDirectory = "$PWD"
+$lnk.IconLocation     = "$PWD\SileroTTS.exe,0"
+$lnk.Save()
+```
 
-   ```powershell
-   $ws = New-Object -ComObject WScript.Shell
-   $lnk = $ws.CreateShortcut("$env:USERPROFILE\Desktop\Silero TTS.lnk")
-   $lnk.TargetPath       = "D:\Programms\silero_openai_tts\SileroTTS.exe"
-   $lnk.WorkingDirectory = "D:\Programms\silero_openai_tts"
-   $lnk.IconLocation     = "D:\Programms\silero_openai_tts\SileroTTS.exe,0"
-   $lnk.Save()
-   ```
-
-`SileroTTS.exe` запускает `python.exe` с `run_tts.py` **напрямую**, без
-промежуточного `cmd.exe`. Это даёт два выигрыша: нет лишнего процесса и
-нет мелькающего окна консоли на старте. Иконка самого файла и ярлыка
-будет вашей; в панели задач — увы, всё равно cmd.
-
----
+`SileroTTS.exe` запускает Python напрямую: нет лишнего `cmd.exe`, нет
+мелькающего окна консоли на старте, иконка в панели задач — ваша.
 
 ### Завершение работы
 
@@ -643,6 +654,12 @@ OpenClaw ожидает OpenAI-совместимый TTS endpoint. Запуст
 - **CUDA не используется**: проверьте, что ваша сборка PyTorch поддерживает CUDA, и `SILERO_DEVICE=cuda`.
 - **Первый запуск медленный**: модель скачивается в первый раз. Последующие старты быстрее.
 - **Нет звука / аудио повреждено**: сначала попробуйте `response_format: "wav"`, чтобы отделить проблемы кодирования.
+- **`HTTP Error 403: rate limit exceeded` при первом запуске**: `torch.hub` обращается к GitHub API для проверки репозитория и упирается в лимит анонимных запросов (60/час на IP). Варианты:
+  - установить переменную окружения `GITHUB_TOKEN` с [personal access token](https://github.com/settings/tokens) (лимит поднимется до 5000/час);
+  - либо создать `.venv\Lib\site-packages\sitecustomize.py` с обходом:
+    ```python
+    import torch
+    torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
 
 ---
 
