@@ -1,4 +1,4 @@
-# Silero TTS, совместимый с OpenAI API и ElevenLabs API
+# Silero TTS, совместимый с OpenAI API и ElevenLabs API + Консольный client
 
 **Локальный**, self-hosted сервер синтеза речи (Text-to-Speech, TTS), реализующий одновременно **OpenAI TTS API** (`POST /v1/audio/speech`)
 и **ElevenLabs-совместимый API** (`POST /v1/text-to-speech/{voice_id}`, `GET /v1/voices`, `GET /v1/models`).
@@ -7,6 +7,14 @@
 [OpenClaw](https://github.com/openclaw/openclaw) — чтобы OpenClaw мог говорить, не полагаясь на внешние облачные сервисы.
 При этом этот сервер подходит **для любого** проекта, который ожидает OpenAI-совместимый и/или ElevenLabs-совместимый TTS endpoint: достаточно указать
 клиенту base URL этого сервера.
+
+Особенностью этого форка является **встроенный автономный консольный клиент**,
+который сам поднимает и гасит сервер, ждёт готовности, ведёт интерактивный
+REPL с переключением голосов, а также умеет озвучить текст, переданный
+аргументом командной строки. Клиент работает на Windows (для Linux/macOS
+достаточно заменить путь к `python.exe` на `python`).
+
+> **Консольный клиент** — см. раздел [«Консольный клиент»](#консольный-клиент).
 
 Под капотом используются модели **Silero TTS** через `torch.hub` (скачиваются при первом запуске), плюс небольшой пайплайн
 нормализации текста, ориентированный на **русский и английский**, включая **раскрытие числительных**.
@@ -26,6 +34,9 @@
   `model`, `input`, `voice`, `response_format`, `speed`.
 - **Опциональный ElevenLabs-совместимый режим**: может отдавать `POST /v1/text-to-speech/{voice_id}` и `GET /v1/voices` для клиентов с ElevenLabs-style контрактом.
 - **Сделано для OpenClaw**, но работает с любым OpenAI-совместимым клиентом.
+- **Автономный консольный клиент** (Windows): сам запускает сервер в фоне,
+  ждёт готовности, ведёт REPL со сменой голосов, корректно гасит сервер
+  по `exit`, `Ctrl+C` и закрытию окна.
 - **Поддержка русского и английского** (автоматическое распознавание).
 - **Естественное чтение чисел**:
   - раскрывает целые числа в слова;
@@ -172,6 +183,253 @@ silero-tts --port 8080 --force-play
 ```
 
 При первом старте сервер скачает выбранную модель Silero (через `torch.hub`).
+
+---
+
+## Консольный клиент
+
+Помимо HTTP API, в форк добавлен интерактивный консольный клиент, который
+берёт на себя всю оркестрацию: поднимает сервер, ждёт готовности, озвучивает
+введённый текст, а при выходе останавливает сервер.
+
+### Из чего состоит
+
+| Файл | Назначение |
+|---|---|
+| `speak.py` | Клиент: HTTP-запросы к серверу + воспроизведение через `sounddevice`. Чистый клиент, без логики запуска. |
+| `run_tts.py` | Оркестратор: стартует/гасит сервер, ждёт `/docs`, запускает `speak.py`. |
+| `launcher.cs` | Опциональный C#-лаунчер (`SileroTTS.exe`) с вшитой иконкой. |
+| `run_tts.bat` | Тонкая обёртка для запуска из Проводника. |
+| `jobobject.py` | Windows Job Object с `KILL_ON_JOB_CLOSE` — гарантирует, что сервер умрёт вместе с лаунчером, даже если окно закрыли крестиком. |
+
+### Требования
+
+- Windows (использует `taskkill`, `jobobject` и `sounddevice` с WASAPI-устройствами).
+- Python 3.10+ из состава виртуального окружения проекта (`.venv`).
+- FFmpeg — только если планируете работать с не-WAV форматами.
+- Установленный `sounddevice` (см. `requirements-client.txt` или общий `pyproject.toml`).
+
+### Установка
+
+```powershell
+cd D:\Programms\silero_openai_tts
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e .
+# плюс зависимости клиента, если вынесены отдельно:
+python -m pip install -r requirements-client.txt
+
+### Настройки
+
+Все параметры клиента сосредоточены в начале `speak.py`:
+
+```python
+SERVER_URL   = "http://127.0.0.1:8000/v1/audio/speech"
+DEVICE_INDEX = 18
+VOICES       = ["baya", "aidar", "kseniya", "xenia", "eugene"]
+DEFAULT_VOICE = "eugene"
+```
+
+А параметры оркестратора — в начале `run_tts.py`:
+
+```python
+SERVER_HOST = "127.0.0.1"
+SERVER_PORT = 8000
+SHOW_SERVER_WINDOW = False   # True — сервер стартует в видимом окне cmd
+```
+
+#### Как узнать индекс аудиоустройства
+
+`DEVICE_INDEX` — номер устройства вывода, на которое клиент отправляет
+синтезированный звук. Чтобы посмотреть список доступных устройств:
+
+```powershell
+python -c "import sounddevice as sd; print(sd.query_devices())"
+```
+
+Вывод будет примерно таким:
+
+```
+   0 Microsoft Sound Mapper - Input, MME (2 in, 0 out)
+   1 Микрофон (Realtek Audio), MME (2 in, 0 out)
+   ...
+  18 Динамики (USB Audio), WASAPI (0 in, 2 out)
+  19 Наушники (Realtek Audio), WASAPI (0 in, 2 out)
+```
+
+Найди строку с нужным устройством вывода и подставь её **индекс** (число
+в начале строки) в `DEVICE_INDEX` в `speak.py`. В примере выше это `18`.
+
+> **Важно.** Индексы устройств в Windows могут меняться после перезагрузки
+> или подключения/отключения USB-гарнитуры. Если звук внезапно пропал —
+> перезапусти `python -c "import sounddevice as sd; print(sd.query_devices())"`
+> и проверь, что `DEVICE_INDEX` всё ещё указывает на нужное устройство.
+
+#### Голоса
+
+Список доступных голосов задаётся в `VOICES`. По умолчанию — все спикеры
+модели `v5_1_ru`: `baya`, `aidar`, `kseniya`, `xenia`, `eugene`.
+Голос по умолчанию — `eugene` (`DEFAULT_VOICE`). Изменить список можно
+как в `speak.py`, так и во время работы: команды `/voices` и `/voice <имя>`
+в REPL.
+
+---
+
+### Запуск
+
+#### Интерактивный режим
+
+```powershell
+python run_tts.py
+```
+
+Появится приглашение `[eugene]>`, в котором можно вводить текст и команды:
+
+| Команда | Что делает |
+|---|---|
+| `<текст>` | Синтезирует и проигрывает текст текущим голосом. |
+| `/voice <имя>` | Переключает голос. Можно сразу с текстом: `/voice aidar привет`. |
+| `/voices` | Показывает список доступных голосов. |
+| `exit` | Выходит из клиента и останавливает сервер. |
+
+Пример сессии:
+
+```
+Текущий голос: eugene
+Команды: /voice <имя>, /voices, exit
+Доступные голоса: baya, aidar, kseniya, xenia, eugene
+[eugene]> Привет, мир
+Воспроизведение завершено.
+[eugene]> /voice aidar
+Голос переключён на: aidar
+[aidar]> Как дела?
+Воспроизведение завершено.
+[aidar]> exit
+Выход.
+Останавливаю сервер (PID=15480)...
+Готово.
+```
+
+#### Разовая озвучка
+
+Если нужно озвучить одну фразу и сразу выйти:
+
+```powershell
+python run_tts.py "Привет, это тестовая фраза."
+```
+
+Клиент поднимет сервер, озвучит текст голосом по умолчанию (`eugene`),
+погасит сервер и завершится. В этом режиме смена голоса и REPL не работают.
+
+---
+
+### Ярлык на Рабочем столе
+
+Есть два способа запускать всё одной кнопкой.
+
+#### Вариант 1 — ярлык на `run_tts.bat` (просто)
+
+1. Убедись, что рядом с `run_tts.py` лежит `run_tts.bat`:
+
+   ```bat
+   @echo off
+   chcp 65001 >nul
+   cd /d "%~dp0"
+   "%~dp0.venv\Scripts\python.exe" "%~dp0run_tts.py" %*
+   if errorlevel 1 pause
+   ```
+
+2. Правый клик по `run_tts.bat` → **Отправить → Рабочий стол (создать ярлык)**.
+3. По желанию: свойства ярлыка → **Сменить значок** → указать `silero.ico`.
+
+Готово. Двойной клик открывает консоль с REPL и поднимает сервер.
+
+> **Минус этого способа:** в панели задач Windows будет отображаться
+> иконка `cmd.exe`, а не ваша. Это ограничение Windows для консольных
+> приложений — обойти его штатно нельзя. Иконка самого ярлыка и файла
+> `.bat` будет вашей, но панель задач всё равно покажет cmd.
+
+#### Вариант 2 — `SileroTTS.exe` с вшитой иконкой (красивее)
+
+Понадобится компилятор C# из состава .NET Framework (идёт с Windows).
+
+1. Положи рядом `launcher.cs` и `silero.ico`:
+
+   ```csharp
+   using System;
+   using System.Diagnostics;
+   using System.IO;
+
+   class Launcher
+   {
+       static int Main(string[] args)
+       {
+           string dir = AppDomain.CurrentDomain.BaseDirectory;
+           string py  = Path.Combine(dir, ".venv", "Scripts", "python.exe");
+           string run = Path.Combine(dir, "run_tts.py");
+
+           ProcessStartInfo psi = new ProcessStartInfo();
+           psi.FileName = py;
+           psi.WorkingDirectory = dir;
+           psi.UseShellExecute = false;
+           psi.Arguments = "\"" + run + "\"" +
+               (args.Length > 0 ? " " + string.Join(" ", args) : "");
+
+           Process p = Process.Start(psi);
+           p.WaitForExit();
+           return p.ExitCode;
+       }
+   }
+   ```
+
+2. Собери `SileroTTS.exe`:
+
+   ```powershell
+   C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe `
+       /target:exe /win32icon:silero.ico `
+       /out:SileroTTS.exe launcher.cs
+   ```
+
+3. Создай ярлык на Рабочем столе:
+
+   ```powershell
+   $ws = New-Object -ComObject WScript.Shell
+   $lnk = $ws.CreateShortcut("$env:USERPROFILE\Desktop\Silero TTS.lnk")
+   $lnk.TargetPath       = "D:\Programms\silero_openai_tts\SileroTTS.exe"
+   $lnk.WorkingDirectory = "D:\Programms\silero_openai_tts"
+   $lnk.IconLocation     = "D:\Programms\silero_openai_tts\SileroTTS.exe,0"
+   $lnk.Save()
+   ```
+
+`SileroTTS.exe` запускает `python.exe` с `run_tts.py` **напрямую**, без
+промежуточного `cmd.exe`. Это даёт два выигрыша: нет лишнего процесса и
+нет мелькающего окна консоли на старте. Иконка самого файла и ярлыка
+будет вашей; в панели задач — увы, всё равно cmd.
+
+---
+
+### Завершение работы
+
+Поведение клиента и сервера зависит от способа завершения:
+
+| Действие | Что происходит |
+|---|---|
+| `exit` в REPL | `run_tts.py` ловит выход и в `finally` гасит сервер через `taskkill`. |
+| `Ctrl+C` в REPL | `speak.py` перехватывает `KeyboardInterrupt`, печатает «Выход.», `finally` в `run_tts.py` гасит сервер. |
+| `Ctrl+C` во время ожидания сервера | `requests.get` в `_wait_server` кидает исключение, `finally` гасит сервер. |
+| Крестик на окне лаунчера | Если подключён `jobobject.py` — Windows сам убьёт сервер по `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. Без него сервер переживёт закрытие и будет переиспользован при следующем запуске. |
+| Сервер уже запущен вручную | `run_tts.py` видит занятый порт, не поднимает второй сервер и **не гасит** существующий при выходе (`owned=False`). |
+
+#### Job Object (защита от «осиротевшего» сервера)
+
+Чтобы сервер гарантированно умирал вместе с лаунчером, даже если окно
+закрыли крестиком, в `run_tts.py` используется Windows Job Object.
+Модуль `jobobject.py` создаёт job с флагом `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`
+и кладёт в него процесс `silero-tts.exe`. Как только процесс-родитель
+умирает любым способом — ОС убивает всех в job'е.
+
+Подключение уже встроено в `run_tts.py`, дополнительных действий не требуется.
+На Linux/macOS модуль превращается в no-op — там `finally` и так работает
+надёжно.
 
 ---
 
