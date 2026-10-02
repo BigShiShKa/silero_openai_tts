@@ -214,9 +214,7 @@ silero-tts --port 8080 --force-play
 ```powershell
 cd D:\Programms\silero_openai_tts
 .\.venv\Scripts\Activate.ps1
-python -m pip install -e .
-# плюс зависимости клиента, если вынесены отдельно:
-python -m pip install -r requirements-client.txt
+pip install -e ".[client]"
 
 ### Настройки
 
