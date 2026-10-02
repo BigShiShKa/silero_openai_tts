@@ -222,7 +222,7 @@ the entered text, and stops the server on exit.
 ### Installation
 
 ```powershell
-cd D:\Programms\silero_openai_tts
+cd .\silero_openai_tts
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[client]"
 ```
