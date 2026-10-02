@@ -95,6 +95,8 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -U pip
 pip install -e .
+
+# optional for console client
 pip install -e ".[client]"
 ```
 
@@ -105,13 +107,13 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -U pip
 
-# Только сервер:
+# Server only:
 python -m pip install -e .
 
-# Сервер + консольный клиент (рекомендуется):
+# Server + console client (recommended):
 python -m pip install -e ".[client]"
 
-# Сервер + клиент + тесты:
+# Server + client + tests:
 python -m pip install -e ".[client,test]"
 ```
 
@@ -171,7 +173,7 @@ Windows equivalent:
 silero-tts --help
 ```
 
-| Опция | Описание |
+| Option | Description |
 |--------|-------------|
 | `--host` | Interface to bind to (default: `0.0.0.0`) |
 | `--port` | Port to listen on (default: `8000`) |
@@ -181,13 +183,13 @@ silero-tts --help
 **Examples:**
 
 ```bash
-# Запуск с включенным force-play (проигрывание аудио + вывод текста)
+# Launch with force-play (audio playing + text output)
 silero-tts --force-play
 
-# Запуск только с выводом текста
+# Launch with text-only
 silero-tts --show-text
 
-# Запуск с обеими опциями на пользовательском порту
+# Launch with both options
 silero-tts --port 8080 --force-play
 ```
 
@@ -241,7 +243,7 @@ Orchestrator parameters are located at the beginning of `run_tts.py`:
 ```python
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 8000
-SHOW_SERVER_WINDOW = False   # True — сервер стартует в видимом окне cmd
+SHOW_SERVER_WINDOW = False   # True — Server starting in visible cmd window
 ```
 
 #### How to find the audio device index
@@ -257,19 +259,19 @@ The output will look approximately like this:
 
 ```
    0 Microsoft Sound Mapper - Input, MME (2 in, 0 out)
-   1 Микрофон (Realtek Audio), MME (2 in, 0 out)
+   1 Microphone (Realtek Audio), MME (2 in, 0 out)
    ...
-  18 Динамики (USB Audio), WASAPI (0 in, 2 out)
-  19 Наушники (Realtek Audio), WASAPI (0 in, 2 out)
+  18 Speakers (USB Audio), WASAPI (0 in, 2 out)
+  19 Headphones (Realtek Audio), WASAPI (0 in, 2 out)
 ```
 
 Find the line with the desired output device and put its **index** (the number
 at the beginning of the line) into `DEVICE_INDEX` in `speak.py`. In the example above, it is `18`.
 
 > **Important.** Device indices in Windows may change after reboot
-> или подключения/отключения USB-гарнитуры. Если звук внезапно пропал —
-> перезапусти `python -c "import sounddevice as sd; print(sd.query_devices())"`
-> и проверь, что `DEVICE_INDEX` всё ещё указывает на нужное устройство.
+> or enabling/disabling usb. If the sound suddenly disappears —
+> restart `python -c "import sounddevice as sd; print(sd.query_devices())"`
+> and check for `DEVICE_INDEX` still points to the required device.
 
 #### Voices
 
@@ -298,7 +300,7 @@ The `[eugene]>` prompt will appear, where you can enter text and commands:
 | `/voices` | Shows the list of available voices. |
 | `exit` | Exits the client and stops the server. |
 
-Пример сессии:
+Example session (currently RU lang only):
 
 ```
 Текущий голос: eugene
@@ -321,7 +323,7 @@ The `[eugene]>` prompt will appear, where you can enter text and commands:
 If you need to speak a single phrase and exit immediately:
 
 ```powershell
-python run_tts.py "Привет, это тестовая фраза."
+python run_tts.py "Hello world! It`s a test phrase."
 ```
 
 The client will start the server, speak the text using the default voice (`eugene`),
@@ -339,8 +341,8 @@ required: run the client once, and
 Configuration is at the beginning of `run_tts.py`:
 
 ```python
-CREATE_DESKTOP_SHORTCUT = True   # False — не создавать ярлык
-SHORTCUT_NAME = "Silero TTS"     # имя файла ярлыка (без .lnk)
+CREATE_DESKTOP_SHORTCUT = True   # False — do not create
+SHORTCUT_NAME = "Silero TTS"     # file name (no .lnk)
 ```
 
 Contents of `run_tts.bat` (used as the shortcut TargetPath):
@@ -354,9 +356,9 @@ if errorlevel 1 pause
 ```
 
 > **Downside of console shortcuts.** The Windows taskbar displays the
-> `cmd.exe`, а не `silero.ico`. Это ограничение Windows для консольных
-> приложений — иконка самого ярлыка и файла `.bat` будет вашей, но панель
-> задач всё равно покажет cmd.
+> `cmd.exe`, а не `silero.ico`. This is a Windows limitation for console
+> applications — the icon of the shortcut itself and the file `.bat` will be yours, but the taskbar
+> will still show cmd.
 
 #### If you want your own taskbar icon
 
@@ -421,11 +423,11 @@ Client and server behavior depends on how they are terminated:
 
 | Action | What happens |
 |---|---|
-| `exit` в REPL | `run_tts.py` handles the exit and stops the server via `taskkill` in `finally`. |
-| `Ctrl+C` в REPL | `speak.py` catches `KeyboardInterrupt`, prints “Exit.”, and `finally` in `run_tts.py` stops the server. |
-| `Ctrl+C` во время ожидания сервера | `requests.get` в `_wait_server` raises an exception, and `finally` stops the server. |
-| Крестик на окне лаунчера | If `jobobject.py` is connected, Windows will kill the server via `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. Without it, the server survives the close and will be reused on the next launch. |
-| Сервер уже запущен вручную | `run_tts.py` detects that the port is occupied, does not start a second server, and **does not stop** the existing server on exit (`owned=False`). |
+| `exit` in REPL | `run_tts.py` handles the exit and stops the server via `taskkill` in `finally`. |
+| `Ctrl+C` in REPL | `speak.py` catches `KeyboardInterrupt`, prints “Exit.”, and `finally` in `run_tts.py` stops the server. |
+| `Ctrl+C` while waiting for the server | `requests.get` в `_wait_server` raises an exception, and `finally` stops the server. |
+| The cross on the launcher window. | If `jobobject.py` is connected, Windows will kill the server via `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. Without it, the server survives the close and will be reused on the next launch. |
+| The server has already been started manually | `run_tts.py` detects that the port is occupied, does not start a second server, and **does not stop** the existing server on exit (`owned=False`). |
 
 #### Job Object (protection against an “orphaned” server)
 
@@ -531,8 +533,8 @@ curl http://localhost:8000/v1/text-to-speech/EXAVITQu4vr4xnSDxMaL \
 ```
 
 Current `output_format` mapping:
-- `mp3_*` -> ответ MP3
-- `pcm_*` -> ответ WAV
+- `mp3_*` -> response MP3
+- `pcm_*` -> response WAV
 
 You can override `voice_id` mapping via `ELEVENLABS_VOICE_MAP_JSON` (a JSON object in env).
 
@@ -556,7 +558,7 @@ Add the following to the OpenClaw configuration (for example, ~/.openclaw/opencl
 }
 ```
 
-- `OPENAI_TTS_BASE_URL` — базовый URL OpenAI-совместимого API (важно: с суффиксом `/v1`).
+- `OPENAI_TTS_BASE_URL` — the base URL of the OpenAI‑compatible API (important: with the `/v1` suffix).
 - `OPENAI_API_KEY` — “placeholder”: many clients require some key in the configuration even for a local endpoint; if you enable `REQUIRE_AUTH`, use the same token here as the server's `API_KEY`.
 
 **Recommended** (auto-speech + default voice, with Edge TTS disabled):
@@ -589,17 +591,17 @@ Configuration is defined through environment variables (loaded from `.env`).
 
 ### Silero model
 
-- `SILERO_LANGUAGE` (default: `ru`) — language code (например: `ru`, `en`).
-- `SILERO_MODEL_ID` (default: `v5_1_ru`) — Silero model ID for the selected language (например: `v5_ru`, `v4_ru`).
-- `SILERO_SAMPLE_RATE` (default: `48000`) — output sample rate in Hz (типичные значения: `8000`, `24000`, `48000`).
-- `SILERO_DEVICE` (default: `cpu`) — `cpu` или `cuda`.
+- `SILERO_LANGUAGE` (default: `ru`) — language code (for ex.: `ru`, `en`).
+- `SILERO_MODEL_ID` (default: `v5_1_ru`) — Silero model ID for the selected language (for ex.: `v5_ru`, `v4_ru`).
+- `SILERO_SAMPLE_RATE` (default: `48000`) — output sample rate in Hz (default values: `8000`, `24000`, `48000`).
+- `SILERO_DEVICE` (default: `cpu`) — `cpu` or `cuda`.
 - `SILERO_NUM_THREADS` (default: `0`) — inference threads (`0` = авто).
 - `SILERO_DEFAULT_SPEAKER` (default: `kseniya`) — speaker used when `voice` is unknown/unmapped.
-- `SILERO_MODELS_DIR` (default: `models`) — directory for downloaded models (если ваша реализация их сохраняет).
+- `SILERO_MODELS_DIR` (default: `models`) — directory for downloaded models (if your implementation preserves them).
 
 ### Authentication
 
-- `REQUIRE_AUTH` (default: `false`) — если `true`, requests must include `Authorization: Bearer ...`.
+- `REQUIRE_AUTH` (default: `false`) — if `true`, requests must include `Authorization: Bearer ...`.
 - `API_KEY` (default: `dummy-local-key`) — expected Bearer token.
 
 ### Cache
@@ -633,7 +635,7 @@ The server accepts **OpenAI voice names** and maps them to Silero speakers. Exam
 | `nova` | `xenia` |
 | `shimmer` | `baya` |
 
-You can also pass a Silero speaker directly (например: `aidar`, `baya`, `kseniya`, `xenia`, `eugene`, `random`).
+You can also pass a Silero speaker directly (ex.: `aidar`, `baya`, `kseniya`, `xenia`, `eugene`, `random`).
 
 ---
 
@@ -649,12 +651,12 @@ Before synthesis, the input text passes through a small normalizer that:
 
 ## Troubleshooting
 
-- **Cannot output MP3/OPUS/AAC/FLAC**: make sure `ffmpeg`, и `FFMPEG_BIN` указывает на него.
-- **CUDA не используется**: make sure your PyTorch build supports CUDA and `SILERO_DEVICE=cuda`.
+- **Cannot output MP3/OPUS/AAC/FLAC**: make sure `ffmpeg`, и `FFMPEG_BIN` points on it.
+- **CUDA unused**: make sure your PyTorch build supports CUDA and `SILERO_DEVICE=cuda`.
 - **First launch is slow**: the model is downloaded the first time. Subsequent starts are faster.
 - **No sound / audio is corrupted**: first try `response_format: "wav"`, to isolate encoding problems.
-- **`HTTP Error 403: rate limit exceeded` on the first launch**: `torch.hub` обращается к GitHub API для проверки репозитория и упирается в лимит анонимных запросов (60/час на IP). Options:
-  - set the environment variable `GITHUB_TOKEN` with a [personal access token](https://github.com/settings/tokens) (лимит поднимется до 5000/час);
+- **`HTTP Error 403: rate limit exceeded` on the first launch**: `torch.hub` accesses the GitHub API to check the repository and hits the limit of anonymous requests (60 per hour per IP). Options:
+  - set the environment variable `GITHUB_TOKEN` with a [personal access token](https://github.com/settings/tokens) (The limit will rise to 5,000 per hour.);
   - or create `.venv\Lib\site-packages\sitecustomize.py` with the following workaround:
     ```python
     import torch
