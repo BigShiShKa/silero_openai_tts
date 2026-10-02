@@ -7,3 +7,4 @@ out/
 models/*
 !models/.gitkeep
 *.egg-info/
+tts_server.log

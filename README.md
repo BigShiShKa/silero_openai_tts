@@ -207,7 +207,6 @@ the entered text, and stops the server on exit.
 |---|---|
 | `speak.py` | Client: HTTP requests to the server + playback via `sounddevice`. Pure client, with no startup logic. |
 | `run_tts.py` | Orchestrator: starts/stops the server, waits for `/docs`, and launches `speak.py`. |
-| `launcher.cs` | Optional C# launcher (`SileroTTS.exe`) with an embedded icon. |
 | `run_tts.bat` | Thin wrapper for launching from File Explorer. |
 | `jobobject.py` | Windows Job Object with `KILL_ON_JOB_CLOSE` — ensures the server dies with the launcher, even if the window is closed with the X button. |
 
