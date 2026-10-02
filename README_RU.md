@@ -58,7 +58,7 @@ REPL с переключением голосов, а также умеет оз
 ### 0) Клонирование репозитория
 
 ```bash
-git clone https://github.com/ndrco/silero_openai_tts.git
+git clone https://github.com/BigShiShKa/silero_openai_tts/
 cd silero_openai_tts
 ```
 

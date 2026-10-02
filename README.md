@@ -58,7 +58,7 @@ The project also supports **automatic audio playback** directly on the server. T
 ### 0) Clone the repository
 
 ```bash
-git clone https://github.com/ndrco/silero_openai_tts.git
+git clone https://github.com/BigShiShKa/silero_openai_tts/
 cd silero_openai_tts
 ```
 
