@@ -10,6 +10,7 @@ from app.api.routes_tts import router as tts_router
 from app.api.routes_elevenlabs import router as elevenlabs_router
 from app.services.tts_service import TTSService
 from app.audio.player import stop_player
+from app.api.health import router as health_router
 
 
 def create_app() -> FastAPI:
@@ -99,6 +100,7 @@ def create_app() -> FastAPI:
     if en_engine is not None:
         en_engine.load()
 
+    app.include_router(health_router)
     app.include_router(tts_router)
     if settings.enable_elevenlabs_compat:
         app.include_router(elevenlabs_router)
