@@ -7,4 +7,20 @@ out/
 models/*
 !models/.gitkeep
 *.egg-info/
-tts_server.log
+# Test and build artifacts.
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+
+# Runtime diagnostics, recordings and local preferences.
+*.log
+*.log.[0-9]*
+/.diagnostics/
+/recordings/
+/client.json
+/client.local.json
+.env.*
+!.env.example

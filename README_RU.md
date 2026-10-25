@@ -10,9 +10,9 @@
 
 Особенностью этого форка является **встроенный автономный консольный клиент**,
 который сам поднимает и гасит сервер, ждёт готовности, ведёт интерактивный
-REPL с переключением голосов, а также умеет озвучить текст, переданный
-аргументом командной строки. Клиент работает на Windows (для Linux/macOS
-достаточно заменить путь к `python.exe` на `python`).
+REPL с переключением голосов, скорости и аудиоустройства, а также умеет озвучить текст,
+переданный аргументом командной строки. Основная платформа клиента — Windows;
+для других платформ предусмотрены переносимые пути, но полный сценарий запуска на них не проверен.
 
 > **Консольный клиент** — см. раздел [«Консольный клиент»](#консольный-клиент).
 
@@ -197,247 +197,31 @@ silero-tts --port 8080 --force-play
 
 ## Консольный клиент
 
-Помимо HTTP API, в форк добавлен интерактивный консольный клиент, который
-берёт на себя всю оркестрацию: поднимает сервер, ждёт готовности, озвучивает
-введённый текст, а при выходе останавливает сервер.
+[Руководство по консольному клиенту](CLIENT_RU.md)
 
-### Из чего состоит
-
-| Файл | Назначение |
-|---|---|
-| `speak.py` | Клиент: HTTP-запросы к серверу + воспроизведение через `sounddevice`. Чистый клиент, без логики запуска. |
-| `run_tts.py` | Оркестратор: стартует/гасит сервер, ждёт `/docs`, запускает `speak.py`. |
-| `run_tts.bat` | Тонкая обёртка для запуска из Проводника. |
-| `jobobject.py` | Windows Job Object с `KILL_ON_JOB_CLOSE` — гарантирует, что сервер умрёт вместе с лаунчером, даже если окно закрыли крестиком. |
-
-### Требования
-
-- Windows (использует `taskkill`, `jobobject` и `sounddevice` с WASAPI-устройствами).
-- Python 3.10+ из состава виртуального окружения проекта (`.venv`).
-- FFmpeg — только если планируете работать с не-WAV форматами.
-- Установленный `sounddevice` (см. extras `[client]` в `pyproject.toml`).
-
-### Установка
+Установите дополнительные зависимости клиента: `python -m pip install -e ".[client]"`.
 
 ```powershell
-cd .\silero_openai_tts
-.\.venv\Scripts\Activate.ps1
-pip install -e ".[client]"
+silero-tts console
+silero-tts speak --voice eugene "Hello"
+silero-tts server --host 127.0.0.1 --port 8000
 ```
 
-### Настройки
+Клиент автоматически запускает локальный сервер при необходимости и останавливает
+только свой сервер при выходе. `silero-tts` без подкоманды по-прежнему запускает сервер.
+`run_tts.bat` и `python run_tts.py` открывают интерактивную консоль.
 
-Все параметры клиента сосредоточены в начале `speak.py`:
+Основные команды: `/voice <имя>`, `/speed <0.25–4>`, `/devices`, `/device <номер>`,
+`/device default`, `/monitor on|off`, `/status`, `/help`, `exit`.
 
-```python
-SERVER_URL   = "http://127.0.0.1:8000/v1/audio/speech"
-DEVICE_INDEX = 18
-VOICES       = ["baya", "aidar", "kseniya", "xenia", "eugene"]
-DEFAULT_VOICE = "eugene"
-```
+`/monitor on` дополнительно выводит звук в системные динамики/наушники, сохраняя
+вывод в выбранное устройство, например виртуальный микрофон. По умолчанию дублирование
+выключено; настройка сохраняется. Серверный `FORCE_PLAY` для этого включать не нужно.
 
-А параметры оркестратора — в начале `run_tts.py`:
-
-```python
-SERVER_HOST = "127.0.0.1"
-SERVER_PORT = 8000
-SHOW_SERVER_WINDOW = False   # True — сервер стартует в видимом окне cmd
-```
-
-#### Как узнать индекс аудиоустройства
-
-`DEVICE_INDEX` — номер устройства вывода, на которое клиент отправляет
-синтезированный звук. Чтобы посмотреть список доступных устройств:
-
-```powershell
-python -c "import sounddevice as sd; print(sd.query_devices())"
-```
-
-Вывод будет примерно таким:
-
-```
-   0 Microsoft Sound Mapper - Input, MME (2 in, 0 out)
-   1 Микрофон (Realtek Audio), MME (2 in, 0 out)
-   ...
-  18 Динамики (USB Audio), WASAPI (0 in, 2 out)
-  19 Наушники (Realtek Audio), WASAPI (0 in, 2 out)
-```
-
-Найди строку с нужным устройством вывода и подставь её **индекс** (число
-в начале строки) в `DEVICE_INDEX` в `speak.py`. В примере выше это `18`.
-
-> **Важно.** Индексы устройств в Windows могут меняться после перезагрузки
-> или подключения/отключения USB-гарнитуры. Если звук внезапно пропал —
-> перезапусти `python -c "import sounddevice as sd; print(sd.query_devices())"`
-> и проверь, что `DEVICE_INDEX` всё ещё указывает на нужное устройство.
-
-#### Голоса
-
-Список доступных голосов задаётся в `VOICES`. По умолчанию — все спикеры
-модели `v5_1_ru`: `baya`, `aidar`, `kseniya`, `xenia`, `eugene`.
-Голос по умолчанию — `eugene` (`DEFAULT_VOICE`). Изменить список можно
-как в `speak.py`, так и во время работы: команды `/voices` и `/voice <имя>`
-в REPL.
-
----
-
-### Запуск
-
-#### Интерактивный режим
-
-```powershell
-python run_tts.py
-```
-
-Появится приглашение `[eugene]>`, в котором можно вводить текст и команды:
-
-| Команда | Что делает |
-|---|---|
-| `<текст>` | Синтезирует и проигрывает текст текущим голосом. |
-| `/voice <имя>` | Переключает голос. Можно сразу с текстом: `/voice aidar привет`. |
-| `/voices` | Показывает список доступных голосов. |
-| `exit` | Выходит из клиента и останавливает сервер. |
-
-Пример сессии:
-
-```
-Текущий голос: eugene
-Команды: /voice <имя>, /voices, exit
-Доступные голоса: baya, aidar, kseniya, xenia, eugene
-[eugene]> Привет, мир
-Воспроизведение завершено.
-[eugene]> /voice aidar
-Голос переключён на: aidar
-[aidar]> Как дела?
-Воспроизведение завершено.
-[aidar]> exit
-Выход.
-Останавливаю сервер (PID=15480)...
-Готово.
-```
-
-#### Разовая озвучка
-
-Если нужно озвучить одну фразу и сразу выйти:
-
-```powershell
-python run_tts.py "Привет, это тестовая фраза."
-```
-
-Клиент поднимет сервер, озвучит текст голосом по умолчанию (`eugene`),
-погасит сервер и завершится. В этом режиме смена голоса и REPL не работают.
-
----
-
-### Ярлык на Рабочем столе
-
-Ярлык создаётся автоматически при первом запуске `run_tts.py` — при условии,
-что рядом лежат `run_tts.bat` и `silero.ico`. Никаких ручных действий не
-требуется: запустите клиент один раз, и на рабочем столе появится
-«Silero TTS».
-
-Управление — в начале `run_tts.py`:
-
-```python
-CREATE_DESKTOP_SHORTCUT = True   # False — не создавать ярлык
-SHORTCUT_NAME = "Silero TTS"     # имя файла ярлыка (без .lnk)
-```
-
-Содержимое `run_tts.bat` (используется как TargetPath ярлыка):
-
-```bat
-@echo off
-chcp 65001 >nul
-cd /d "%~dp0"
-"%~dp0.venv\Scripts\python.exe" "%~dp0run_tts.py" %*
-if errorlevel 1 pause
-```
-
-> **Минус консольных ярлыков.** В панели задач Windows отображается иконка
-> `cmd.exe`, а не `silero.ico`. Это ограничение Windows для консольных
-> приложений — иконка самого ярлыка и файла `.bat` будет вашей, но панель
-> задач всё равно покажет cmd.
-
-#### Если хочется свою иконку и в панели задач
-
-Единственный способ — запускать Python **напрямую**, без промежуточного
-`cmd.exe`. Для этого собирается минимальный C#-лаунчер `SileroTTS.exe`
-с вшитой иконкой. Компилятор C# входит в состав .NET Framework.
-
-Положите рядом `launcher.cs` и `silero.ico`:
-
-```csharp
-using System;
-using System.Diagnostics;
-using System.IO;
-
-class Launcher
-{
-    static int Main(string[] args)
-    {
-        string dir = AppDomain.CurrentDomain.BaseDirectory;
-        string py  = Path.Combine(dir, ".venv", "Scripts", "python.exe");
-        string run = Path.Combine(dir, "run_tts.py");
-
-        ProcessStartInfo psi = new ProcessStartInfo();
-        psi.FileName = py;
-        psi.WorkingDirectory = dir;
-        psi.UseShellExecute = false;
-        psi.Arguments = "\"" + run + "\"" +
-            (args.Length > 0 ? " " + string.Join(" ", args) : "");
-
-        Process p = Process.Start(psi);
-        p.WaitForExit();
-        return p.ExitCode;
-    }
-}
-```
-
-Соберите `SileroTTS.exe`:
-
-```powershell
-C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe `
-    /target:exe /win32icon:silero.ico `
-    /out:SileroTTS.exe launcher.cs
-```
-
-Затем создайте ярлык на `SileroTTS.exe`:
-
-```powershell
-$ws  = New-Object -ComObject WScript.Shell
-$lnk = $ws.CreateShortcut("$env:USERPROFILE\Desktop\Silero TTS.lnk")
-$lnk.TargetPath       = "$PWD\SileroTTS.exe"
-$lnk.WorkingDirectory = "$PWD"
-$lnk.IconLocation     = "$PWD\SileroTTS.exe,0"
-$lnk.Save()
-```
-
-`SileroTTS.exe` запускает Python напрямую: нет лишнего `cmd.exe`, нет
-мелькающего окна консоли на старте, иконка в панели задач — ваша.
-
-### Завершение работы
-
-Поведение клиента и сервера зависит от способа завершения:
-
-| Действие | Что происходит |
-|---|---|
-| `exit` в REPL | `run_tts.py` ловит выход и в `finally` гасит сервер через `taskkill`. |
-| `Ctrl+C` в REPL | `speak.py` перехватывает `KeyboardInterrupt`, печатает «Выход.», `finally` в `run_tts.py` гасит сервер. |
-| `Ctrl+C` во время ожидания сервера | `requests.get` в `_wait_server` кидает исключение, `finally` гасит сервер. |
-| Крестик на окне лаунчера | Если подключён `jobobject.py` — Windows сам убьёт сервер по `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. Без него сервер переживёт закрытие и будет переиспользован при следующем запуске. |
-| Сервер уже запущен вручную | `run_tts.py` видит занятый порт, не поднимает второй сервер и **не гасит** существующий при выходе (`owned=False`). |
-
-#### Job Object (защита от «осиротевшего» сервера)
-
-Чтобы сервер гарантированно умирал вместе с лаунчером, даже если окно
-закрыли крестиком, в `run_tts.py` используется Windows Job Object.
-Модуль `jobobject.py` создаёт job с флагом `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`
-и кладёт в него процесс `silero-tts.exe`. Как только процесс-родитель
-умирает любым способом — ОС убивает всех в job'е.
-
-Подключение уже встроено в `run_tts.py`, дополнительных действий не требуется.
-На Linux/macOS модуль превращается в no-op — там `finally` и так работает
-надёжно.
+Голос, скорость, устройство и дублирование сохраняются в `%APPDATA%\silero-tts\client.json`.
+Адрес сервера и ключ можно передать через `--url` и `SILERO_CLIENT_API_KEY`.
+По умолчанию WAV не сохраняется; для записи добавьте `speak --output <файл.wav>`.
+Ctrl+C завершает клиент и принадлежащий ему сервер. Проверка готовности использует `/health`.
 
 ---
 

@@ -74,6 +74,3 @@ def _ensure_desktop_shortcut() -> None:
             print(f"[warn] не удалось создать ярлык: {err}")
     except Exception as e:
         print(f"[warn] не удалось создать ярлык: {e}")
-
-# =======================  Поиск исполняемого сервера  =======================
-
