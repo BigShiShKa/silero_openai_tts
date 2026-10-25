@@ -52,6 +52,9 @@ def create_test_app(*, require_auth: bool = False, cache_dir: str | None = None,
 
     cache_path = cache_dir or tempfile.mkdtemp(prefix="silero_tts_test_cache_")
     settings = Settings(
+        auto_play=False,
+        force_play=False,
+        show_text=False,
         require_auth=require_auth,
         api_key="test-secret-key",
         cache_dir=cache_path,

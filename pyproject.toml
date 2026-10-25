@@ -24,6 +24,8 @@ client = [
 test = [
   "pytest>=7.0",
   "httpx>=0.27",
+  "requests>=2.31",
+  "sounddevice>=0.4",
 ]
 
 [tool.pytest.ini_options]
